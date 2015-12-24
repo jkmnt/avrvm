@@ -1,0 +1,3 @@
+build of avrvm with simple bin runner and debug prints enabled.
+used to run binaries and compare produced output to the logs from real hardware.
+test binaries and logs are in /test
