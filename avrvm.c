@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include "avr_op_decoder.h"
 #include "avrvm.h"
 
@@ -39,7 +40,7 @@ static void writemem(avrvm_ctx_t *ctx, uint16_t addr, uint8_t byte)
         ctx->sreg = byte;
 }
 
-static uint8_t readmem(avrvm_ctx_t *ctx, uint16_t addr)
+static uint8_t readmem(const avrvm_ctx_t *ctx, uint16_t addr)
 {
     if (addr >= 32 + 64) // sram read (most common operation)
         return ctx->iface.sram_r(addr - 32 - 64);
@@ -460,12 +461,12 @@ int avrvm_exec(avrvm_ctx_t *ctx)
         break;
 
     case AVR_OP_SBIS:
-        if (ctx->iface.io_r(ops.port) & (1 << ops.bit))
+        if (readmem(ctx, ops.port + 32) & (1 << ops.bit))
             ctx->pc = skip_instr(ctx, ctx->pc);
         break;
 
     case AVR_OP_SBIC:
-        if (! (ctx->iface.io_r(ops.port) & (1 << ops.bit)))
+        if (! (readmem(ctx, ops.port + 32) & (1 << ops.bit)))
             ctx->pc = skip_instr(ctx, ctx->pc);
         break;
 
@@ -586,11 +587,11 @@ int avrvm_exec(avrvm_ctx_t *ctx)
         break;
 
     case AVR_OP_IN:
-        RD = ctx->iface.io_r(ops.port);
+        RD = readmem(ctx, ops.port + 32);
         break;
 
     case AVR_OP_OUT:
-        ctx->iface.io_w(ops.port, RR);
+        writemem(ctx, ops.port + 32, RR);
         break;
 
     case AVR_OP_PUSH:
@@ -640,11 +641,11 @@ int avrvm_exec(avrvm_ctx_t *ctx)
         break;
 
     case AVR_OP_SBI:
-        ctx->iface.io_w(ops.port, ctx->iface.io_r(ops.port) | (1 << ops.bit));
+        writemem(ctx, ops.port + 32, readmem(ctx, ops.port + 32) | (1 << ops.bit));
         break;
 
     case AVR_OP_CBI:
-        ctx->iface.io_w(ops.port, ctx->iface.io_r(ops.port) & ~(1 << ops.bit));
+        writemem(ctx, ops.port + 32, readmem(ctx, ops.port + 32) | ~(1 << ops.bit));
         break;
 
     case AVR_OP_BST:
@@ -688,4 +689,82 @@ void avrvm_init(avrvm_ctx_t *ctx, const avrvm_iface_t *iface, uint16_t sram_size
     ctx->pc = 0;
     ctx->sp = 32 + 64 + sram_size - 1;
     ctx->iface = *iface;
+}
+
+void avrvm_unpack_args_gcc(const avrvm_ctx_t *ctx, const char *fmt, ...)
+{
+    va_list vl;
+    va_start(vl, fmt);
+
+    const char *p;
+
+//  from avr-libc:
+//  char is 8 bits, int is 16 bits, long is 32 bits, long long is 64 bits, float and
+//  double are 32 bits (this is the only supported floating point format), pointers are 16 bits
+//
+//  Arguments - allocated left to right, r25 to r8. All arguments are aligned to start in
+//  even-numbered registers (odd-sized arguments, including char, have one free
+//  register above them).
+//  If too many, those that don’t fit are passed on the stack
+
+    int idx = 26;
+    int are_using_stack = 0;
+
+    for (p = fmt; *p; p++)
+    {
+        int size;
+
+        switch (*p)
+        {
+        case 'c':   // char     (1)
+        case 'b':   // int8_t   (1)
+        case 'B':   // uint8_t  (1)
+            size = 1;
+            break;
+        case 'h':   // int16_t  (2)
+        case 'H':   // uint16_t (2)
+        case 'P':   // void *   (2) -> sram offset
+            size = 2;
+            break;
+        case 'i':   // int32_t  (4)
+        case 'I':   // uint32_t (4)
+        case 'l':   // int32_t  (4)
+        case 'L':   // uint32_t (4)
+        case 'f':   // float    (4)
+            size = 4;
+            break;
+        case 'q':   // int64_t  (8)
+        case 'Q':   // uint64_t (8)
+            size = 8;
+            break;
+        }
+
+        if (! are_using_stack)
+        {
+            idx -= (size + 1) & -2; // ceil to nearest even
+            if (idx >= 8)
+            {
+                memcpy(va_arg(vl, void *), &ctx->regs[idx], size);
+            }
+            else    // won't fit, switch to stack and retry
+            {
+                are_using_stack = 1;
+                p -= 1;
+                idx = 0;
+            }
+        }
+        else
+        {
+            printf("switched to STACK !");
+            printf("idx is %d", idx);
+            printf("reading from %d", ctx->sp + 1 + idx - 32 - 64);
+            int i;
+            uint8_t *arg = va_arg(vl, void *);
+            for (i = 0; i < size; i++)
+                arg[i] = readmem(ctx, ctx->sp + 1 + idx + i);
+            idx += size;
+        }
+    }
+
+    va_end(vl);
 }

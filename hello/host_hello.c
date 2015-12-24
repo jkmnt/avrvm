@@ -57,13 +57,66 @@ static void exec_ext_call(int idx)
     switch (idx)
     {
     case 0:
-        printf("%c", vm.regs[24]); // single-byte argument, passed by gcc in r24
+        {
+            char c;
+            avrvm_unpack_args_gcc(&vm, "c", &c);
+            printf("%c", c);
+        }
         break;
 
     case 1:
         {
-            uint32_t interval = (vm.regs[25] << 24) | (vm.regs[24] << 16) | (vm.regs[23] << 8) | (vm.regs[22]) ;
+            uint32_t interval;
+            avrvm_unpack_args_gcc(&vm, "I", &interval);
             Sleep(interval);
+        }
+        break;
+
+    case 2:
+        {
+            uint16_t a;
+            uint32_t b;
+            uint32_t c;
+            uint8_t d;
+            uint16_t e;
+            uint8_t f;
+            uint8_t g;
+            avrvm_unpack_args_gcc(&vm, "HIIBHBB", &a, &b, &c, &d, &e, &f, &g);
+
+            printf("a = %d "
+                   "b = %d "
+                   "c = %d "
+                   "d = %d "
+                   "e = %d "
+                   "f = %d "
+                   "g = %d \n", a, b, c, d, e, f, g);
+        }
+        break;
+
+    case 3:
+        {
+            uint16_t a;
+            uint32_t b;
+            uint32_t c;
+            uint8_t d;
+            uint16_t e;
+            uint8_t f;
+            uint32_t g;
+            uint16_t h;
+            uint8_t i;
+            uint8_t j;
+            avrvm_unpack_args_gcc(&vm, "HIIBHBIHBB", &a, &b, &c, &d, &e, &f, &g, &h, &i, &j);
+
+            printf("a = %d "
+                   "b = %d "
+                   "c = %d "
+                   "d = %d "
+                   "e = %d "
+                   "f = %d "
+                   "g = %d "
+                   "h = 0x%x "
+                   "i = %d"
+                   "j = %d\n", a, b, c, d, e, f, g, h, i, j);
         }
         break;
     }
