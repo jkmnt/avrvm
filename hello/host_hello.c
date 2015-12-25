@@ -119,6 +119,123 @@ static void exec_ext_call(int idx)
                    "j = %d\n", a, b, c, d, e, f, g, h, i, j);
         }
         break;
+
+    case 4:
+        {
+            static uint8_t cnt = 0;
+            avrvm_pack_return_gcc(&vm, 'B', &cnt);
+            cnt++;
+        }
+        break;
+
+    case 5:
+        {
+            uint16_t p;
+            avrvm_unpack_args_gcc(&vm, "P", &p);
+            printf("%s", &sram[p]);
+        }
+        break;
+
+//double (* const hostapi_mirror_d)(double) = (void *)(HOSTAPI_BASE + 13);
+//int64_t (* const hostapi_mirror_q)(int64_t) = (void *)(HOSTAPI_BASE + 14);
+//uint64_t (* const hostapi_mirror_Q)(uint64_t) = (void *)(HOSTAPI_BASE + 15);
+//void * (* const hostapi_mirror_p)(void *) = (void *)(HOSTAPI_BASE + 15);
+
+
+    case 6:
+        {
+            char c;
+            avrvm_unpack_args_gcc(&vm, "c", &c);
+            avrvm_pack_return_gcc(&vm, 'c', &c);
+        }
+        break;
+
+    case 7:
+        {
+            int8_t b;
+            avrvm_unpack_args_gcc(&vm, "b", &b);
+            avrvm_pack_return_gcc(&vm, 'b', &b);
+        }
+        break;
+
+    case 8:
+        {
+            uint8_t B;
+            avrvm_unpack_args_gcc(&vm, "B", &B);
+            avrvm_pack_return_gcc(&vm, 'B', &B);
+        }
+        break;
+
+    case 9:
+        {
+            int16_t h;
+            avrvm_unpack_args_gcc(&vm, "h", &h);
+            avrvm_pack_return_gcc(&vm, 'h', &h);
+        }
+        break;
+
+    case 10:
+        {
+            uint16_t H;
+            avrvm_unpack_args_gcc(&vm, "H", &H);
+            avrvm_pack_return_gcc(&vm, 'H', &H);
+        }
+        break;
+
+    case 11:
+        {
+            int32_t i;
+            avrvm_unpack_args_gcc(&vm, "i", &i);
+            avrvm_pack_return_gcc(&vm, 'i', &i);
+        }
+        break;
+
+    case 12:
+        {
+            uint32_t I;
+            avrvm_unpack_args_gcc(&vm, "I", &I);
+            avrvm_pack_return_gcc(&vm, 'I', &I);
+        }
+        break;
+
+    case 13:
+        {
+            float d;
+            avrvm_unpack_args_gcc(&vm, "f", &d);
+            avrvm_pack_return_gcc(&vm, 'f', &d);
+        }
+        break;
+
+    case 14:
+        {
+            int64_t q;
+            avrvm_unpack_args_gcc(&vm, "q", &q);
+            avrvm_pack_return_gcc(&vm, 'q', &q);
+        }
+        break;
+
+    case 15:
+        {
+            uint32_t Q;
+            avrvm_unpack_args_gcc(&vm, "Q", &Q);
+            avrvm_pack_return_gcc(&vm, 'Q', &Q);
+        }
+        break;
+
+    case 16:
+        {
+            uint16_t p;
+            avrvm_unpack_args_gcc(&vm, "P", &p);
+            avrvm_pack_return_gcc(&vm, 'P', &p);
+        }
+        break;
+
+
+    default:
+        #warning "special spoil"
+        vm.regs[24] ^= 0xFF;
+        vm.regs[25] ^= 0xFF;
+        break;
     }
 }
 

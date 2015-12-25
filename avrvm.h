@@ -52,5 +52,6 @@ void avrvm_init(avrvm_ctx_t *ctx, const avrvm_iface_t *iface, uint16_t sram_size
 int avrvm_exec(avrvm_ctx_t *ctx);
 
 void avrvm_unpack_args_gcc(const avrvm_ctx_t *ctx, const char *fmt, ...);
+void avrvm_pack_return_gcc(avrvm_ctx_t *ctx, char fmt, const void *val);
 
 #endif

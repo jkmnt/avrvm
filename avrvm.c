@@ -693,11 +693,6 @@ void avrvm_init(avrvm_ctx_t *ctx, const avrvm_iface_t *iface, uint16_t sram_size
 
 void avrvm_unpack_args_gcc(const avrvm_ctx_t *ctx, const char *fmt, ...)
 {
-    va_list vl;
-    va_start(vl, fmt);
-
-    const char *p;
-
 //  from avr-libc:
 //  char is 8 bits, int is 16 bits, long is 32 bits, long long is 64 bits, float and
 //  double are 32 bits (this is the only supported floating point format), pointers are 16 bits
@@ -707,10 +702,13 @@ void avrvm_unpack_args_gcc(const avrvm_ctx_t *ctx, const char *fmt, ...)
 //  register above them).
 //  If too many, those that don’t fit are passed on the stack
 
-    int idx = 26;
+    va_list vl;
+    va_start(vl, fmt);
+
+    int idx = 26; // r25 + 1
     int are_using_stack = 0;
 
-    for (p = fmt; *p; p++)
+    for (const char *p = fmt; *p; p++)
     {
         int size;
 
@@ -723,7 +721,7 @@ void avrvm_unpack_args_gcc(const avrvm_ctx_t *ctx, const char *fmt, ...)
             break;
         case 'h':   // int16_t  (2)
         case 'H':   // uint16_t (2)
-        case 'P':   // void *   (2) -> sram offset
+        case 'P':   // void *   (2) -> pointer arg is special, see below
             size = 2;
             break;
         case 'i':   // int32_t  (4)
@@ -737,34 +735,77 @@ void avrvm_unpack_args_gcc(const avrvm_ctx_t *ctx, const char *fmt, ...)
         case 'Q':   // uint64_t (8)
             size = 8;
             break;
+        default:
+            while (1);  // instead of heavyweight assert
+            break;
         }
+
+        void *arg = va_arg(vl, void *);
 
         if (! are_using_stack)
         {
             idx -= (size + 1) & -2; // ceil to nearest even
-            if (idx >= 8)
+            if (idx >= 8)   // r8
             {
-                memcpy(va_arg(vl, void *), &ctx->regs[idx], size);
+                memcpy(arg, &ctx->regs[idx], size);
             }
-            else    // won't fit, switch to stack and retry
+            else    // won't fit, switch to stack
             {
                 are_using_stack = 1;
-                p -= 1;
                 idx = 0;
             }
         }
-        else
+
+        if (are_using_stack)
         {
-            printf("switched to STACK !");
-            printf("idx is %d", idx);
-            printf("reading from %d", ctx->sp + 1 + idx - 32 - 64);
-            int i;
-            uint8_t *arg = va_arg(vl, void *);
-            for (i = 0; i < size; i++)
-                arg[i] = readmem(ctx, ctx->sp + 1 + idx + i);
+            for (int i = 0; i < size; i++)
+                *((uint8_t *)arg + i) = readmem(ctx, ctx->sp + 1 + idx + i);
             idx += size;
         }
-    }
 
+        if (*p == 'P')  // pointer arg is special - patch result to convert it to the sram offset
+            *((uint16_t *)arg) -= 32 + 64;
+    }
     va_end(vl);
+}
+
+//  from avr-libc:
+//Return values: 8-bit in r24 (not r25!), 16-bit in r25:r24, up to 32 bits in r22-r25, up to
+//64 bits in r18-r25. 8-bit return values are zero/sign-extended to 16 bits by the called
+//function
+void avrvm_pack_return_gcc(avrvm_ctx_t *ctx, char fmt, const void *val)
+{
+    switch (fmt)
+    {
+    case 'c':   // char     (1)
+        ctx->regsw[12] = *(const char *)val;
+        break;
+    case 'b':   // int8_t   (1)
+        ctx->regsw[12] = *(const int8_t *)val;
+        break;
+    case 'B':   // uint8_t  (1)
+        ctx->regsw[12] = *(const uint8_t *)val;
+        break;
+    case 'h':   // int16_t  (2)
+    case 'H':   // uint16_t (2)
+        ctx->regsw[12] = *(const uint16_t *)val;
+        break;
+    case 'i':   // int32_t  (4)
+    case 'I':   // uint32_t (4)
+    case 'l':   // int32_t  (4)
+    case 'L':   // uint32_t (4)
+    case 'f':   // float    (4)
+        memcpy(&ctx->regs[22], val, 4);
+        break;
+    case 'q':   // int64_t  (8)
+    case 'Q':   // uint64_t (8)
+        memcpy(&ctx->regs[18], val, 8);
+        break;
+    case 'P':   // void *   (2) -> pointer arg is special, convert from sram offset to mem pointer
+        ctx->regsw[12] = *(const uint16_t *)val + 32 + 64;
+        break;
+    default:
+        while (1);
+        break;
+    }
 }

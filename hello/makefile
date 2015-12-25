@@ -15,7 +15,7 @@ run: $(HOST_TGT).exe $(SCRIPT_TGT).bin
 	$(HOST_TGT).exe $(SCRIPT_TGT).bin
 
 $(HOST_TGT).exe: $(HOST_SRC)
-	gcc -O2 -Wall -I. -I../ $^ -o $@
+	gcc -O2 -std=c99 -Wall -I. -I../ $^ -o $@
 
 $(SCRIPT_TGT).elf: $(SCRIPT_SRC)
 	avr-gcc -Wall -Os -ffreestanding -mmcu=atmega88 -o $@ $^

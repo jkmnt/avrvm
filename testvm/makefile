@@ -8,7 +8,7 @@ HOST_TGT := testvm
 all: $(HOST_TGT).exe
 
 $(HOST_TGT).exe: $(HOST_SRC)
-	gcc -O2 -DDEBUG_AVRVM=1 -I. -I../ $^ -o $@
+	gcc -std=c99 -O2 -DDEBUG_AVRVM=1 -I. -I../ $^ -o $@
 
 clean:
 	rm -f $(HOST_TGT).exe
