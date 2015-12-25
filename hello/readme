@@ -1,7 +1,7 @@
 'hello world' in avrvm
 
 host_hello.c - host code, compiled by gcc (mingw)
-Two host functions are exported to script: putc and sleep
+Few host functions are exported to script: putc, sleep and a function to get a next sequence number
 I/O register 0 is updated with last pressed key value.
 
 script_hello.c - script code, compiled with avr-gcc for atmega88 machine
@@ -9,6 +9,6 @@ Script uses host-provided putc for helloworlding and sleep for sleeping.
 Script also reads keyboard input from I/O register 0 and terminates on 'Q' press.
 
 Few things to note in a host code:
-* address wrapping in flash reader, specific for flash size of emulated machine.
+* address wrapping in flash reader, specific for flash size of the emulated machine.
 * sram size equals to the size of machine sram, since binaries produced by avr-gcc include startup routine initializing stack pointer to the last sram address.
-* arguments for host functions are unpacked according to the avr-gcc's call convention
+* arguments for host functions are unpacked according to the avr-gcc's call convention via helpers
